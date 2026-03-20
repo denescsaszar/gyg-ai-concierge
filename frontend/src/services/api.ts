@@ -1,6 +1,6 @@
-import type { Activity } from '@/types/activity'
+import type { Activity, ChatMessage, ChatResponse } from '@/types/activity'
 
-const API_BASE = 'http://localhost:8080/api'
+const API_BASE = '/api'
 
 export async function fetchActivities(): Promise<Activity[]> {
   const response = await fetch(`${API_BASE}/activities`)
@@ -22,5 +22,18 @@ export async function searchActivities(params: {
 
   const response = await fetch(`${API_BASE}/activities/search?${searchParams}`)
   if (!response.ok) throw new Error('Failed to search activities')
+  return response.json()
+}
+
+export async function sendChatMessage(
+  message: string,
+  conversationHistory: ChatMessage[],
+): Promise<ChatResponse> {
+  const response = await fetch(`${API_BASE}/concierge/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, conversationHistory }),
+  })
+  if (!response.ok) throw new Error('Chat request failed')
   return response.json()
 }

@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import type { Activity } from '@/types/activity'
 import { fetchActivities, searchActivities } from '@/services/api'
 import ActivityCard from '@/components/ActivityCard.vue'
+import ChatWidget from '@/components/ChatWidget.vue'
 
 const activities = ref<Activity[]>([])
 const searchQuery = ref('')
@@ -33,6 +34,12 @@ async function handleSearch() {
     loading.value = false
   }
 }
+function handleRecommendations(activityIds: number[]) {
+  // Sort recommended activities to the top
+  const recommended = activities.value.filter((a) => activityIds.includes(a.id))
+  const others = activities.value.filter((a) => !activityIds.includes(a.id))
+  activities.value = [...recommended, ...others]
+}
 
 onMounted(loadActivities)
 </script>
@@ -62,6 +69,7 @@ onMounted(loadActivities)
         <ActivityCard v-for="activity in activities" :key="activity.id" :activity="activity" />
       </div>
     </section>
+    <ChatWidget @recommendations="handleRecommendations" />
   </main>
 </template>
 

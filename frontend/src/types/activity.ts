@@ -23,3 +23,13 @@ export enum Category {
   FAMILY = 'FAMILY',
   ADVENTURE = 'ADVENTURE',
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatResponse {
+  message: string
+  recommendedActivityIds: number[]
+}
