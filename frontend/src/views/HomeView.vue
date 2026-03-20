@@ -8,13 +8,19 @@ import ChatWidget from '@/components/ChatWidget.vue'
 const activities = ref<Activity[]>([])
 const searchQuery = ref('')
 const loading = ref(true)
+const error = ref('')
+const recommendedIds = ref<number[]>([])
+
+
 
 async function loadActivities() {
   loading.value = true
+  error.value = ''
   try {
     activities.value = await fetchActivities()
-  } catch (error) {
-    console.error('Failed to load activities:', error)
+  } catch (e) {
+    error.value = 'Failed to load experiences. Is the backend running?'
+    console.error('Failed to load activities:', e)
   } finally {
     loading.value = false
   }
@@ -22,24 +28,28 @@ async function loadActivities() {
 
 async function handleSearch() {
   loading.value = true
+  error.value = ''
   try {
     if (searchQuery.value.trim()) {
       activities.value = await searchActivities({ query: searchQuery.value })
     } else {
       activities.value = await fetchActivities()
     }
-  } catch (error) {
-    console.error('Search failed:', error)
+  } catch (e) {
+    error.value = 'Search failed. Please try again.'
+    console.error('Search failed:', e)
   } finally {
     loading.value = false
   }
 }
+
 function handleRecommendations(activityIds: number[]) {
-  // Sort recommended activities to the top
+  recommendedIds.value = activityIds
   const recommended = activities.value.filter((a) => activityIds.includes(a.id))
   const others = activities.value.filter((a) => !activityIds.includes(a.id))
   activities.value = [...recommended, ...others]
 }
+
 
 onMounted(loadActivities)
 </script>
@@ -60,15 +70,24 @@ onMounted(loadActivities)
       </div>
     </section>
 
-    <section class="activities">
-      <div v-if="loading" class="loading">Loading experiences...</div>
-      <div v-else-if="activities.length === 0" class="empty">
-        No activities found. Try a different search.
-      </div>
-      <div v-else class="activity-grid">
-        <ActivityCard v-for="activity in activities" :key="activity.id" :activity="activity" />
-      </div>
-    </section>
+<section class="activities">
+  <div v-if="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading experiences...</p>
+  </div>
+  <div v-else-if="error" class="error">{{ error }}</div>
+  <div v-else-if="activities.length === 0" class="empty">
+    No activities found. Try a different search.
+  </div>
+  <div v-else class="activity-grid">
+    <ActivityCard
+      v-for="activity in activities"
+      :key="activity.id"
+      :activity="activity"
+      :recommended="recommendedIds.includes(activity.id)"
+    />
+  </div>
+</section>
     <ChatWidget @recommendations="handleRecommendations" />
   </main>
 </template>
@@ -152,4 +171,47 @@ onMounted(loadActivities)
   color: #999;
   font-size: 1.1rem;
 }
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #ff5533;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #e53e3e;
+  background: #fff5f5;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .hero p {
+    font-size: 1rem;
+  }
+
+  .search-bar {
+    flex-direction: column;
+  }
+
+  .activity-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 </style>
