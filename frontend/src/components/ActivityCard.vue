@@ -3,7 +3,9 @@ import type { Activity } from '@/types/activity'
 
 defineProps<{
   activity: Activity
+  recommended?: boolean
 }>()
+
 
 function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
@@ -24,6 +26,7 @@ function formatPrice(price: number): string {
     <div class="card-image">
       <img :src="activity.imageUrl + '?w=400&h=250&fit=crop'" :alt="activity.title" />
       <span class="category-badge">{{ activity.category.replace('_', ' ') }}</span>
+      <span v-if="recommended" class="recommended-badge">AI Recommended</span>
     </div>
     <div class="card-content">
       <h3>{{ activity.title }}</h3>
@@ -173,4 +176,16 @@ function formatPrice(price: number): string {
   font-weight: 700;
   color: #ff5533;
 }
+.recommended-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ff5533;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 </style>
