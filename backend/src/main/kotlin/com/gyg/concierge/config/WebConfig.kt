@@ -9,7 +9,8 @@ class WebConfig : WebMvcConfigurer {
 
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/api/**")
-            .allowedOrigins("http://localhost:5173", "https://*.vercel.app")
+            .allowedOrigins("http://localhost:5173", "https://gyg-ai-concierge.vercel.app")
+            .allowedOriginPatterns("https://*.vercel.app")
             .allowedMethods("GET", "POST", "PUT", "DELETE")
             .allowedHeaders("*")
             .allowCredentials(true)
