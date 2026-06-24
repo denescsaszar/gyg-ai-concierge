@@ -1,8 +1,6 @@
 import type { Activity, ChatMessage, ChatResponse } from '@/types/activity'
 
-const API_BASE = import.meta.env.PROD
-  ? 'https://charismatic-vision-production-874b.up.railway.app/api'
-  : '/api'
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 export async function fetchActivities(): Promise<Activity[]> {
   const response = await fetch(`${API_BASE}/activities`)
