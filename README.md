@@ -1,6 +1,6 @@
 # 🧳 AI Travel Concierge for GetYourGuide
 
-> Discover Berlin's best experiences through conversation — not endless scrolling.
+> Discover Berlin experiences through conversation, not endless scrolling.
 
 ![Status](https://img.shields.io/badge/status-live-brightgreen)
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9-7F52FF?logo=kotlin&logoColor=white)
@@ -10,7 +10,18 @@
 ![Claude API](https://img.shields.io/badge/Claude%20API-Anthropic-D97706)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-### 🔗 [Live Demo → gyg-ai-concierge.vercel.app](https://gyg-ai-concierge.vercel.app)
+### 🔗 Live Demo
+
+Frontend: https://gyg-ai-concierge.vercel.app
+
+Backend Health Check: https://gyg-ai-concierge.onrender.com/api/health
+
+### 🧪 Try These Prompts
+
+- "I'm visiting Berlin with my girlfriend, we like museums and coffee shops, budget €50."
+- "What's a fun outdoor activity for a couple?"
+- "I'm traveling with kids and have €100 to spend."
+- "Show me hidden gems most tourists miss."
 
 ---
 
@@ -44,13 +55,13 @@ This project explores that idea. Instead of browsing endless lists, a traveler d
 
 ## The Problem & The Solution
 
-| ❌ Traditional Discovery | ✅ AI Concierge |
-|---|---|
-| Keyword search with rigid filters | Natural language — describe what you want |
-| Browse hundreds of listings manually | Curated recommendations in seconds |
-| No understanding of group dynamics | Knows if you're traveling with kids, a partner, solo |
-| Price/duration filters are separate steps | Understands "budget-friendly afternoon activity" |
-| Results feel generic | Explains _why_ each experience fits your request |
+| ❌ Traditional Discovery                  | ✅ AI Concierge                                      |
+| ----------------------------------------- | ---------------------------------------------------- |
+| Keyword search with rigid filters         | Natural language — describe what you want            |
+| Browse hundreds of listings manually      | Curated recommendations in seconds                   |
+| No understanding of group dynamics        | Knows if you're traveling with kids, a partner, solo |
+| Price/duration filters are separate steps | Understands "budget-friendly afternoon activity"     |
+| Results feel generic                      | Explains _why_ each experience fits your request     |
 
 ---
 
@@ -70,13 +81,13 @@ The AI Concierge doesn't just search keywords — it **reasons** about what you'
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|---|---|---|
-| **Backend** | Kotlin + Spring Boot 3 | JVM-native, null-safe, concise — built for scalable microservices |
-| **Frontend** | Vue 3 + TypeScript + Vite | Reactive Composition API, type-safe, instant HMR |
-| **AI Engine** | Claude API (Anthropic) | Advanced reasoning for understanding traveler intent and nuance |
-| **Deployment** | Railway + Vercel | Backend on Railway (JVM), frontend on Vercel (static), zero-config CI/CD |
-| **Containerization** | Docker + Docker Compose | One command to run the full stack locally |
+| Layer                | Technology                  | Why                                                                                |
+| -------------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| **Backend**          | Kotlin + Spring Boot 3      | JVM-native, null-safe, concise — built for scalable services and integrations      |
+| **Frontend**         | Vue 3 + TypeScript + Vite   | Reactive Composition API, type-safe, fast developer experience                     |
+| **AI Engine**        | Anthropic Claude Sonnet 4.6 | Advanced reasoning for understanding traveler intent and preferences               |
+| **Deployment**       | Render + Vercel             | Dockerized backend on Render, frontend on Vercel, automatic deployments via GitHub |
+| **Containerization** | Docker + Docker Compose     | Consistent local and production environments                                       |
 
 ---
 
@@ -99,7 +110,7 @@ The AI Concierge doesn't just search keywords — it **reasons** about what you'
 │                                                        │
 │   ┌─────────────────┐    ┌──────────────────────┐     │
 │   │ ActivityService  │    │  ConciergeService    │     │
-│   │ CRUD + Search    │    │  AI Chat + Matching  │──────── → Claude API
+│   │ CRUD + Search    │    │  AI Chat + Matching  │──────── → Anthropic Claude Sonnet 4.6
 │   └─────────────────┘    └──────────────────────┘     │
 │                                                        │
 │   ┌─────────────────┐    ┌──────────────────────┐     │
@@ -121,31 +132,49 @@ The AI Concierge doesn't just search keywords — it **reasons** about what you'
 ## Features
 
 ### 🤖 AI-Powered Concierge
+
 Natural language conversation with Claude. Understands preferences, group size, budget, interests, and time constraints. Returns personalized recommendations with explanations.
 
 ### 🔍 Smart Activity Search
+
 Filter by keyword, category, price range, and duration. Fuzzy matching across titles, descriptions, and highlights.
 
 ### 🏷️ AI Recommended Badges
+
 When the concierge suggests activities, those cards get an "AI Recommended" badge and sort to the top — connecting the chat to the visual grid.
 
 ### ⚡ Loading & Error States
+
 Spinner while data fetches, friendly error messages if something breaks. Production-quality UX.
 
 ### 📱 Responsive Design
+
 Works on desktop, tablet, and mobile. GetYourGuide-inspired design with their signature `#FF5533` orange.
+
+---
+
+## Highlights
+
+- Designed and deployed a full-stack AI travel discovery platform
+- Built REST APIs using Kotlin and Spring Boot
+- Integrated Anthropic Claude for conversational recommendations
+- Implemented responsive frontend using Vue 3 and TypeScript
+- Containerized services with Docker
+- Deployed production infrastructure on Render and Vercel
+- Demonstrates API integration, partner-platform thinking, and AI-assisted user experiences
+- Showcases the intersection of product strategy, engineering, and operational scalability
 
 ---
 
 ## API Endpoints
 
-| Method | Endpoint | Description | Example |
-|--------|----------|-------------|---------|
-| `GET` | `/api/health` | Service health check | `{"status":"ok"}` |
-| `GET` | `/api/activities` | List all 10 Berlin experiences | Returns full catalog |
-| `GET` | `/api/activities/{id}` | Single activity by ID | `/api/activities/4` |
-| `GET` | `/api/activities/search` | Filter with query params | `?query=food&maxPrice=50` |
-| `POST` | `/api/concierge/chat` | AI concierge conversation | Send message + history |
+| Method | Endpoint                 | Description                    | Example                   |
+| ------ | ------------------------ | ------------------------------ | ------------------------- |
+| `GET`  | `/api/health`            | Service health check           | `{"status":"ok"}`         |
+| `GET`  | `/api/activities`        | List all 10 Berlin experiences | Returns full catalog      |
+| `GET`  | `/api/activities/{id}`   | Single activity by ID          | `/api/activities/4`       |
+| `GET`  | `/api/activities/search` | Filter with query params       | `?query=food&maxPrice=50` |
+| `POST` | `/api/concierge/chat`    | AI concierge conversation      | Send message + history    |
 
 ### Chat Request Example
 
@@ -154,7 +183,10 @@ Works on desktop, tablet, and mobile. GetYourGuide-inspired design with their si
   "message": "What's a good outdoor activity for a couple?",
   "conversationHistory": [
     { "role": "user", "content": "We're visiting Berlin this weekend" },
-    { "role": "assistant", "content": "Welcome! Berlin has amazing experiences..." }
+    {
+      "role": "assistant",
+      "content": "Welcome! Berlin has amazing experiences..."
+    }
   ]
 }
 ```
@@ -217,12 +249,27 @@ Full stack runs on → [http://localhost:3000](http://localhost:3000)
 
 ## Deployment
 
-| Service | Platform | URL |
-|---------|----------|-----|
-| Backend | Railway | `charismatic-vision-production-874b.up.railway.app` |
-| Frontend | Vercel | [gyg-ai-concierge.vercel.app](https://gyg-ai-concierge.vercel.app) |
+| Service  | Platform | URL                                   |
+| -------- | -------- | ------------------------------------- |
+| Backend  | Render   | https://gyg-ai-concierge.onrender.com |
+| Frontend | Vercel   | https://gyg-ai-concierge.vercel.app   |
 
-Both platforms auto-deploy on push to `main`. Zero-config CI/CD.
+Both services automatically deploy on push to `main` through GitHub integration.
+
+### Health Check
+
+```bash
+GET /api/health
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "service": "gyg-ai-concierge"
+}
+```
 
 ---
 
@@ -271,17 +318,18 @@ gyg-ai-concierge/
 
 If this were a production feature at GetYourGuide:
 
-- **Streaming responses** — Claude supports streaming; show words appearing in real-time
-- **Persistent conversations** — Save chat history per user session
-- **Real GetYourGuide API** — Replace sample data with live inventory
-- **Booking integration** — "Book now" buttons that complete the purchase flow
-- **Multi-language support** — Claude can respond in the user's language automatically
-- **Analytics dashboard** — Track which recommendations convert to bookings
-- **Vector search** — Embed activities and queries for semantic matching at scale
+- Streaming AI responses
+- Persistent conversations
+- Connectivity Partner integrations
+- Supplier inventory APIs
+- Booking workflow integrations
+- Partner analytics dashboards
+- Multi-language support
+- Semantic search with vector embeddings
 
 ---
 
-> Built as a portfolio project demonstrating full-stack development, AI integration, and product thinking for the Associate Software Engineer role at GetYourGuide.
+> Built as a portfolio project demonstrating AI-powered travel discovery, API integrations, partner-platform thinking, and full-stack product development inspired by GetYourGuide.
 
 ## License
 
