@@ -68,7 +68,7 @@ Rules:
         )
 
         val params = MessageCreateParams.builder()
-            .model("claude-sonnet-4-0")
+            .model(Model.CLAUDE_SONNET_4_6)
             .maxTokens(1024)
             .system(MessageCreateParams.System.ofString(buildSystemPrompt()))
             .messages(messages)
