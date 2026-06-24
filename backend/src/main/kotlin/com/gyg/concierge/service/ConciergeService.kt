@@ -2,14 +2,14 @@ package com.gyg.concierge.service
 
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
+import com.anthropic.errors.AnthropicException
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.Model
-import com.anthropic.models.messages.ContentBlock
 import com.anthropic.models.messages.MessageParam
-import com.anthropic.models.messages.ContentBlockParam
 import com.gyg.concierge.data.SampleActivities
 import com.gyg.concierge.model.ChatRequest
 import com.gyg.concierge.model.ChatResponse
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service
 class ConciergeService(
     @Value("\${anthropic.api.key}") private val apiKey: String
 ) {
+
+    private val log = LoggerFactory.getLogger(ConciergeService::class.java)
 
     private val client: AnthropicClient by lazy {
         AnthropicOkHttpClient.builder()
@@ -74,21 +76,29 @@ Rules:
             .messages(messages)
             .build()
 
-        val response = client.messages().create(params)
+        return try {
+            val response = client.messages().create(params)
 
-        val responseText = response.content()
-            .filter { it.isText() }
-            .joinToString("") { it.asText().text() }
+            val responseText = response.content()
+                .filter { it.isText() }
+                .joinToString("") { it.asText().text() }
 
+            val activityIds = parseActivityIds(responseText)
+            val cleanedMessage = responseText.replace(Regex("\\[ACTIVITIES:[\\d,]+]"), "").trim()
 
+            ChatResponse(
+                message = cleanedMessage,
+                recommendedActivityIds = activityIds
+            )
+        } catch (e: AnthropicException) {
+            log.error("Anthropic API call failed", e)
+            ChatResponse(message = AI_UNAVAILABLE_MESSAGE)
+        }
+    }
 
-        val activityIds = parseActivityIds(responseText)
-        val cleanedMessage = responseText.replace(Regex("\\[ACTIVITIES:[\\d,]+]"), "").trim()
-
-        return ChatResponse(
-            message = cleanedMessage,
-            recommendedActivityIds = activityIds
-        )
+    companion object {
+        private const val AI_UNAVAILABLE_MESSAGE =
+            "Sorry, I'm having trouble reaching the AI service right now. Please try again in a moment, or browse the available experiences below."
     }
 
     private fun parseActivityIds(text: String): List<Long> {
