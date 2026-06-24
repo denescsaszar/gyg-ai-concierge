@@ -70,7 +70,7 @@ Rules:
         )
 
         val params = MessageCreateParams.builder()
-            .model(Model.CLAUDE_SONNET_4_6)
+            .model(ACTIVE_AI_MODEL)
             .maxTokens(1024)
             .system(MessageCreateParams.System.ofString(buildSystemPrompt()))
             .messages(messages)
@@ -97,6 +97,8 @@ Rules:
     }
 
     companion object {
+        val ACTIVE_AI_MODEL = Model.CLAUDE_SONNET_4_6
+
         private const val AI_UNAVAILABLE_MESSAGE =
             "Sorry, I'm having trouble reaching the AI service right now. Please try again in a moment, or browse the available experiences below."
     }
