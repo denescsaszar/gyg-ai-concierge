@@ -1,61 +1,108 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Activity } from '@/types/activity'
 
-defineProps<{
-  activity: Activity
-  recommended?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    activity: Activity
+    recommended?: boolean
+    /** Above-the-fold cards load eagerly; everything else is deferred. */
+    priority?: boolean
+  }>(),
+  { recommended: false, priority: false },
+)
 
+const CARD_WIDTH = 400
+const CARD_HEIGHT = 250
 
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
+/**
+ * Unsplash serves through imgix, so `auto=format` gives us AVIF/WebP where the
+ * browser supports it and `q=70` roughly halves the bytes at no visible cost.
+ * srcset covers 1x and 2x displays instead of always shipping the larger file.
+ */
+function unsplashUrl(base: string, width: number, height: number): string {
+  return `${base}?w=${width}&h=${height}&fit=crop&auto=format&q=70`
+}
+
+const imageSrc = computed(() => unsplashUrl(props.activity.imageUrl, CARD_WIDTH, CARD_HEIGHT))
+
+const imageSrcset = computed(
+  () =>
+    `${unsplashUrl(props.activity.imageUrl, CARD_WIDTH, CARD_HEIGHT)} 1x, ` +
+    `${unsplashUrl(props.activity.imageUrl, CARD_WIDTH * 2, CARD_HEIGHT * 2)} 2x`,
+)
+
+const categoryLabel = computed(() => props.activity.category.split('_').join(' ').toLowerCase())
+
+const durationLabel = computed(() => {
+  const hours = Math.floor(props.activity.durationMinutes / 60)
+  const mins = props.activity.durationMinutes % 60
   if (hours === 0) return `${mins}min`
   if (mins === 0) return `${hours}h`
   return `${hours}h ${mins}min`
-}
+})
 
-function formatPrice(price: number): string {
-  if (price === 0) return 'Free'
-  return `€${price.toFixed(0)}`
-}
+const priceLabel = computed(() =>
+  props.activity.priceEur === 0 ? 'Free' : `€${props.activity.priceEur.toFixed(0)}`,
+)
 </script>
 
 <template>
-  <article class="card">
+  <article class="card" :class="{ 'card-recommended': recommended }">
     <div class="card-image">
-      <img :src="activity.imageUrl + '?w=400&h=250&fit=crop'" :alt="activity.title" />
-      <span class="category-badge">{{ activity.category.replace('_', ' ') }}</span>
+      <img
+        :src="imageSrc"
+        :srcset="imageSrcset"
+        :alt="`${activity.title} in ${activity.city}`"
+        :width="CARD_WIDTH"
+        :height="CARD_HEIGHT"
+        :loading="priority ? 'eager' : 'lazy'"
+        :fetchpriority="priority ? 'high' : 'auto'"
+        decoding="async"
+      />
+      <span class="category-badge">{{ categoryLabel }}</span>
       <span v-if="recommended" class="recommended-badge">AI Recommended</span>
     </div>
     <div class="card-content">
       <h3>{{ activity.title }}</h3>
       <p class="description">{{ activity.description }}</p>
-      <div class="highlights">
-        <span
-          v-for="highlight in activity.highlights.slice(0, 3)"
-          :key="highlight"
-          class="highlight"
-        >
+      <ul class="highlights">
+        <li v-for="highlight in activity.highlights.slice(0, 3)" :key="highlight" class="highlight">
           {{ highlight }}
-        </span>
-      </div>
+        </li>
+      </ul>
       <div class="card-footer">
-        <div class="rating">
-          <span class="star">&#9733;</span>
-          <span>{{ activity.rating }}</span>
+        <p class="rating">
+          <span class="star" aria-hidden="true">&#9733;</span>
+          <span>
+            <span class="sr-only">Rated</span>{{ activity.rating }}
+            <span class="sr-only">out of 5 from</span>
+          </span>
           <span class="review-count">({{ activity.reviewCount.toLocaleString() }})</span>
-        </div>
-        <div class="meta">
-          <span class="duration">{{ formatDuration(activity.durationMinutes) }}</span>
-          <span class="price">{{ formatPrice(activity.priceEur) }}</span>
-        </div>
+          <span class="sr-only">reviews</span>
+        </p>
+        <p class="meta">
+          <span class="duration">{{ durationLabel }}</span>
+          <span class="price">{{ priceLabel }}</span>
+        </p>
       </div>
     </div>
   </article>
 </template>
 
 <style scoped>
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .card {
   background: white;
   border-radius: 12px;
@@ -64,7 +111,6 @@ function formatPrice(price: number): string {
   transition:
     transform 0.2s,
     box-shadow 0.2s;
-  cursor: pointer;
 }
 
 .card:hover {
@@ -72,23 +118,30 @@ function formatPrice(price: number): string {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
+.card-recommended {
+  outline: 2px solid #ff5533;
+  outline-offset: -2px;
+}
+
 .card-image {
   position: relative;
   height: 200px;
   overflow: hidden;
+  background: #eceff1;
 }
 
 .card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .category-badge {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.72);
   color: white;
   padding: 4px 10px;
   border-radius: 20px;
@@ -110,11 +163,12 @@ function formatPrice(price: number): string {
 
 .description {
   font-size: 0.85rem;
-  color: #666;
+  color: #595959;
   line-height: 1.5;
   margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -124,6 +178,8 @@ function formatPrice(price: number): string {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 14px;
+  list-style: none;
+  padding: 0;
 }
 
 .highlight {
@@ -131,7 +187,7 @@ function formatPrice(price: number): string {
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 0.75rem;
-  color: #555;
+  color: #4a4a4a;
 }
 
 .card-footer {
@@ -151,11 +207,11 @@ function formatPrice(price: number): string {
 }
 
 .star {
-  color: #ff5533;
+  color: #d13b1c;
 }
 
 .review-count {
-  color: #999;
+  color: #6b6b6b;
   font-weight: 400;
   font-size: 0.8rem;
 }
@@ -168,14 +224,15 @@ function formatPrice(price: number): string {
 
 .duration {
   font-size: 0.85rem;
-  color: #666;
+  color: #595959;
 }
 
 .price {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #ff5533;
+  color: #d13b1c;
 }
+
 .recommended-badge {
   position: absolute;
   top: 12px;
@@ -188,4 +245,11 @@ function formatPrice(price: number): string {
   font-weight: 600;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card:hover {
+    transition: none;
+    transform: none;
+  }
+}
 </style>
