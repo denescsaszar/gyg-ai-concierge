@@ -1,57 +1,69 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { Activity } from '@/types/activity'
-import { fetchActivities, searchActivities } from '@/services/api'
+import { fetchActivities } from '@/services/api'
+import { FALLBACK_ACTIVITIES } from '@/data/activities'
 import ActivityCard from '@/components/ActivityCard.vue'
 import ChatWidget from '@/components/ChatWidget.vue'
 
-const activities = ref<Activity[]>([])
+type CatalogSource = 'snapshot' | 'live' | 'offline'
+
+// Seeded from the bundled snapshot so the grid paints on first frame instead
+// of waiting out a Render cold start. Replaced by live data once it arrives.
+const catalog = ref<Activity[]>(FALLBACK_ACTIVITIES)
+const source = ref<CatalogSource>('snapshot')
 const searchQuery = ref('')
-const loading = ref(true)
-const error = ref('')
 const recommendedIds = ref<number[]>([])
 
+const controller = new AbortController()
 
+const visibleActivities = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
 
-async function loadActivities() {
-  loading.value = true
-  error.value = ''
+  // 10 items already in memory — a network round-trip per keystroke would be
+  // strictly slower than filtering here.
+  const matches = q
+    ? catalog.value.filter((a) =>
+        [a.title, a.description, a.city, a.category.replace('_', ' '), ...a.highlights]
+          .join(' ')
+          .toLowerCase()
+          .includes(q),
+      )
+    : catalog.value
+
+  if (recommendedIds.value.length === 0) return matches
+
+  // Rank by the order the concierge returned them, then everything else.
+  const rank = new Map(recommendedIds.value.map((id, i) => [id, i]))
+  return [...matches].sort(
+    (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+  )
+})
+
+async function refreshCatalog() {
   try {
-    activities.value = await fetchActivities()
-  } catch (e) {
-    error.value = 'Failed to load experiences. Is the backend running?'
-    console.error('Failed to load activities:', e)
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleSearch() {
-  loading.value = true
-  error.value = ''
-  try {
-    if (searchQuery.value.trim()) {
-      activities.value = await searchActivities({ query: searchQuery.value })
-    } else {
-      activities.value = await fetchActivities()
+    const live = await fetchActivities(controller.signal)
+    if (live.length > 0) {
+      catalog.value = live
+      source.value = 'live'
     }
   } catch (e) {
-    error.value = 'Search failed. Please try again.'
-    console.error('Search failed:', e)
-  } finally {
-    loading.value = false
+    if (controller.signal.aborted) return
+    source.value = 'offline'
+    console.warn('Live catalog unavailable, showing bundled snapshot:', e)
   }
 }
 
 function handleRecommendations(activityIds: number[]) {
   recommendedIds.value = activityIds
-  const recommended = activities.value.filter((a) => activityIds.includes(a.id))
-  const others = activities.value.filter((a) => !activityIds.includes(a.id))
-  activities.value = [...recommended, ...others]
 }
 
+function clearSearch() {
+  searchQuery.value = ''
+}
 
-onMounted(loadActivities)
+onMounted(refreshCatalog)
+onUnmounted(() => controller.abort())
 </script>
 
 <template>
@@ -59,35 +71,45 @@ onMounted(loadActivities)
     <section class="hero">
       <h1>AI Travel Concierge</h1>
       <p>Describe your perfect trip, and let AI find the best experiences for you.</p>
-      <div class="search-bar">
+      <div class="search-bar" role="search">
+        <label class="sr-only" for="activity-search">Search Berlin experiences</label>
         <input
+          id="activity-search"
           v-model="searchQuery"
-          type="text"
+          type="search"
+          autocomplete="off"
           placeholder="Search activities... (e.g. food, museum, outdoor)"
-          @keyup.enter="handleSearch"
         />
-        <button @click="handleSearch">Search</button>
+        <button type="button" @click="clearSearch" :disabled="!searchQuery">Clear</button>
       </div>
     </section>
 
-<section class="activities">
-  <div v-if="loading" class="loading">
-    <div class="spinner"></div>
-    <p>Loading experiences...</p>
-  </div>
-  <div v-else-if="error" class="error">{{ error }}</div>
-  <div v-else-if="activities.length === 0" class="empty">
-    No activities found. Try a different search.
-  </div>
-  <div v-else class="activity-grid">
-    <ActivityCard
-      v-for="activity in activities"
-      :key="activity.id"
-      :activity="activity"
-      :recommended="recommendedIds.includes(activity.id)"
-    />
-  </div>
-</section>
+    <section class="activities" aria-labelledby="results-heading">
+      <h2 id="results-heading" class="sr-only">Berlin experiences</h2>
+
+      <p class="results-meta" role="status" aria-live="polite">
+        {{ visibleActivities.length }}
+        {{ visibleActivities.length === 1 ? 'experience' : 'experiences' }}
+        <span v-if="source === 'snapshot'" class="badge badge-waking">syncing with server…</span>
+        <span v-else-if="source === 'offline'" class="badge badge-offline">
+          showing the built-in catalog — the API is asleep or unreachable
+        </span>
+      </p>
+
+      <div v-if="visibleActivities.length === 0" class="empty">
+        No activities match “{{ searchQuery }}”. Try a different search.
+      </div>
+      <div v-else class="activity-grid">
+        <ActivityCard
+          v-for="(activity, index) in visibleActivities"
+          :key="activity.id"
+          :activity="activity"
+          :recommended="recommendedIds.includes(activity.id)"
+          :priority="index < 3"
+        />
+      </div>
+    </section>
+
     <ChatWidget @recommendations="handleRecommendations" />
   </main>
 </template>
@@ -99,6 +121,18 @@ onMounted(loadActivities)
   padding: 0 1.5rem;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .hero {
   text-align: center;
   padding: 3rem 0 2rem;
@@ -107,13 +141,13 @@ onMounted(loadActivities)
 .hero h1 {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #ff5533;
+  color: #d13b1c;
   margin-bottom: 0.75rem;
 }
 
 .hero p {
   font-size: 1.15rem;
-  color: #666;
+  color: #595959;
   margin-bottom: 2rem;
 }
 
@@ -134,8 +168,10 @@ onMounted(loadActivities)
   transition: border-color 0.2s;
 }
 
-.search-bar input:focus {
+.search-bar input:focus-visible {
   border-color: #ff5533;
+  outline: 2px solid #d13b1c;
+  outline-offset: 2px;
 }
 
 .search-bar button {
@@ -150,12 +186,43 @@ onMounted(loadActivities)
   transition: background 0.2s;
 }
 
-.search-bar button:hover {
+.search-bar button:hover:not(:disabled) {
   background: #e64a2e;
 }
 
+.search-bar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .activities {
-  padding: 2rem 0 4rem;
+  padding: 1rem 0 4rem;
+}
+
+.results-meta {
+  font-size: 0.85rem;
+  color: #595959;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+.badge-waking {
+  background: #fff1ec;
+  color: #b8340f;
+}
+
+.badge-offline {
+  background: #f2f2f2;
+  color: #595959;
 }
 
 .activity-grid {
@@ -164,35 +231,11 @@ onMounted(loadActivities)
   gap: 24px;
 }
 
-.loading,
 .empty {
   text-align: center;
   padding: 3rem;
-  color: #999;
+  color: #595959;
   font-size: 1.1rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f0f0f0;
-  border-top-color: #ff5533;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error {
-  text-align: center;
-  padding: 2rem;
-  color: #e53e3e;
-  background: #fff5f5;
-  border-radius: 8px;
-  font-weight: 500;
 }
 
 @media (max-width: 768px) {
@@ -213,5 +256,4 @@ onMounted(loadActivities)
     gap: 16px;
   }
 }
-
 </style>
