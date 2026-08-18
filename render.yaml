@@ -1,0 +1,25 @@
+# Render Blueprint — documents the backend's deployment config in code.
+#
+# NOTE: this file only takes effect if the service is created from a Blueprint.
+# The existing gyg-ai-concierge service was created through the dashboard, so
+# changing it there is what actually applies. Kept here so the config is
+# reviewable and reproducible.
+services:
+  - type: web
+    name: gyg-ai-concierge
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    # The audience for this demo is in Europe. Frankfurt removes a
+    # transatlantic round trip from every API call. Region cannot be changed on
+    # an existing Render service — this applies to a newly created one.
+    region: frankfurt
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Render injects PORT; Spring Boot reads SERVER_PORT.
+      - key: SERVER_PORT
+        value: 8080

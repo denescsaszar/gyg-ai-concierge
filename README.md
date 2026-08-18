@@ -33,6 +33,7 @@ Backend Health Check: https://gyg-ai-concierge.onrender.com/api/health
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [Features](#features)
+- [Performance](#performance)
 - [API Endpoints](#api-endpoints)
 - [Getting Started](#getting-started)
 - [Deployment](#deployment)
@@ -143,9 +144,9 @@ Filter by keyword, category, price range, and duration. Fuzzy matching across ti
 
 When the concierge suggests activities, those cards get an "AI Recommended" badge and sort to the top — connecting the chat to the visual grid.
 
-### ⚡ Loading & Error States
+### ⚡ Instant First Paint
 
-Spinner while data fetches, friendly error messages if something breaks. Production-quality UX.
+The grid renders from a bundled catalog snapshot on the first frame, then reconciles with the live API in the background. No spinner, and the page works even when the backend is asleep. See [Performance](#performance).
 
 ### 📱 Responsive Design
 
@@ -163,6 +164,34 @@ Works on desktop, tablet, and mobile. GetYourGuide-inspired design with their si
 - Deployed production infrastructure on Render and Vercel
 - Demonstrates API integration, partner-platform thinking, and AI-assisted user experiences
 - Showcases the intersection of product strategy, engineering, and operational scalability
+
+---
+
+## Performance
+
+### The problem
+
+The backend runs on Render's free tier, which [spins a service down after 15 minutes without traffic](https://render.com/docs/free) and takes about a minute to wake back up — before the JVM has even started. The frontend used to block its first paint on `GET /api/activities`, so the first visitor after any quiet period watched a spinner for the better part of a minute for data that takes under a millisecond to serve.
+
+### What was done about it
+
+| Change                              | Effect                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Bundled catalog snapshot**        | The grid paints from `src/data/activities.ts` on the first frame and reconciles with the API afterwards |
+| **Client-side search**              | Filtering 10 in-memory items beats a network round trip per keystroke                                    |
+| **`preconnect` to API + images**    | DNS and TLS happen during HTML parse, not after                                                          |
+| **CDS archive + C1-only JIT**       | Classes are archived at image build time, so cold start skips most class loading and verification        |
+| **Dropped WebFlux / Reactor**       | Were on the classpath but never imported — pure cold-start tax                                          |
+| **`Cache-Control` on the catalog**  | `max-age=300, stale-while-revalidate=1d`, so most visits never reach the instance                        |
+| **Responsive, deferred images**     | `auto=format` (AVIF/WebP), `srcset`, `loading="lazy"`, and explicit dimensions to prevent layout shift   |
+
+### Guardrails
+
+`POST /api/concierge/chat` is public and costs real money per call, so it is rate limited per client IP (10 requests/minute) and both the message and the conversation history are size-capped in bean validation before anything reaches the model.
+
+### If this needed to be genuinely fast
+
+Free-tier spin-down is a hosting choice, not an architecture one. In order of cost: keep the instance warm with a scheduled `/api/health` ping (~730 of the 750 free instance-hours per month), move to Render's paid tier where services never sleep, or compile to a GraalVM native image and start in tens of milliseconds.
 
 ---
 
@@ -282,7 +311,10 @@ gyg-ai-concierge/
 │   └── src/main/kotlin/com/gyg/concierge/
 │       ├── ConciergeApplication.kt   # Spring Boot entry point
 │       ├── config/
-│       │   └── WebConfig.kt          # CORS configuration
+│       │   ├── WebConfig.kt          # CORS + interceptor registration
+│       │   ├── ClockConfig.kt        # Injectable clock (testable time)
+│       │   ├── ConciergeProperties.kt# Message, history and rate-limit caps
+│       │   └── RateLimitInterceptor.kt # Per-IP limit on the paid endpoint
 │       ├── controller/
 │       │   ├── HealthController.kt   # GET /api/health
 │       │   ├── ActivityController.kt # Activity CRUD endpoints
@@ -302,7 +334,8 @@ gyg-ai-concierge/
 │       ├── App.vue                   # Root component
 │       ├── router/index.ts           # SPA routing
 │       ├── types/activity.ts         # TypeScript interfaces
-│       ├── services/api.ts           # API client layer
+│       ├── data/activities.ts        # Build-time catalog snapshot (instant paint)
+│       ├── services/api.ts           # API client layer (timeouts, typed errors)
 │       ├── components/
 │       │   ├── ActivityCard.vue      # Experience card with badges
 │       │   └── ChatWidget.vue        # Floating AI concierge

@@ -6,6 +6,7 @@ import com.anthropic.errors.AnthropicException
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.Model
 import com.anthropic.models.messages.MessageParam
+import com.gyg.concierge.config.ConciergeProperties
 import com.gyg.concierge.data.SampleActivities
 import com.gyg.concierge.model.ChatRequest
 import com.gyg.concierge.model.ChatResponse
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Service
 
 @Service
 class ConciergeService(
-    @Value("\${anthropic.api.key}") private val apiKey: String
+    @Value("\${anthropic.api.key}") private val apiKey: String,
+    private val properties: ConciergeProperties,
 ) {
 
     private val log = LoggerFactory.getLogger(ConciergeService::class.java)
@@ -25,6 +27,12 @@ class ConciergeService(
             .apiKey(apiKey)
             .build()
     }
+
+    /**
+     * The catalog is static, so the prompt is too. It used to be rebuilt from
+     * scratch on every request.
+     */
+    private val systemPrompt: String by lazy { buildSystemPrompt() }
 
     private fun buildSystemPrompt(): String {
         val activitiesJson = SampleActivities.activities.joinToString("\n") { activity ->
@@ -68,7 +76,11 @@ Output format:
     fun chat(request: ChatRequest): ChatResponse {
         val messages = mutableListOf<MessageParam>()
 
-        for (msg in request.conversationHistory) {
+        // Trim to the most recent turns. Bean validation already rejects absurd
+        // payloads; this keeps the token cost of a legitimate long chat bounded.
+        val history = request.conversationHistory.takeLast(properties.maxHistoryMessages)
+
+        for (msg in history) {
             messages.add(
                 MessageParam.builder()
                     .role(if (msg.role == "user") MessageParam.Role.USER else MessageParam.Role.ASSISTANT)
@@ -80,14 +92,14 @@ Output format:
         messages.add(
             MessageParam.builder()
                 .role(MessageParam.Role.USER)
-                .content(request.message)
+                .content(request.message.take(properties.maxMessageLength))
                 .build()
         )
 
         val params = MessageCreateParams.builder()
             .model(ACTIVE_AI_MODEL)
             .maxTokens(1024)
-            .system(MessageCreateParams.System.ofString(buildSystemPrompt()))
+            .system(MessageCreateParams.System.ofString(systemPrompt))
             .messages(messages)
             .build()
 
@@ -98,8 +110,10 @@ Output format:
                 .filter { it.isText() }
                 .joinToString("") { it.asText().text() }
 
-            val activityIds = parseActivityIds(responseText)
-            val cleanedMessage = responseText.replace(Regex("\\[ACTIVITIES:[\\d,]+]"), "").trim()
+            // Hallucinated ids are dropped here so the frontend is never asked to
+            // highlight a card that does not exist.
+            val activityIds = ActivityTagParser.parseIds(responseText, knownActivityIds)
+            val cleanedMessage = ActivityTagParser.stripTag(responseText)
 
             ChatResponse(
                 message = cleanedMessage,
@@ -111,16 +125,14 @@ Output format:
         }
     }
 
+    private val knownActivityIds: Set<Long> by lazy {
+        SampleActivities.activities.mapTo(mutableSetOf()) { it.id }
+    }
+
     companion object {
-        val ACTIVE_AI_MODEL = Model.CLAUDE_SONNET_4_6
+        val ACTIVE_AI_MODEL: Model = Model.CLAUDE_SONNET_4_6
 
         private const val AI_UNAVAILABLE_MESSAGE =
             "Sorry, I'm having trouble reaching the AI service right now. Please try again in a moment, or browse the available experiences below."
-    }
-
-    private fun parseActivityIds(text: String): List<Long> {
-        val regex = Regex("\\[ACTIVITIES:([\\d,]+)]")
-        val match = regex.find(text) ?: return emptyList()
-        return match.groupValues[1].split(",").mapNotNull { it.trim().toLongOrNull() }
     }
 }

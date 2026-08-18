@@ -4,8 +4,17 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ff5533">
     <title>AI Travel Concierge for GetYourGuide — by Denes Csaszar</title>
     <meta name="description" content="AI-powered travel discovery app for Berlin experiences. Built with Kotlin, Spring Boot 3, Vue 3, TypeScript, and Claude API.">
+    <link rel="canonical" href="https://gyg-ai-concierge.vercel.app/">
+
+    <!-- Warm up the connections the first render needs, in parallel with parsing.
+         Saves the DNS + TLS handshake (~200-400ms on mobile) off the critical path. -->
+    <link rel="preconnect" href="https://gyg-ai-concierge.onrender.com" crossorigin>
+    <link rel="dns-prefetch" href="https://gyg-ai-concierge.onrender.com">
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+    <link rel="dns-prefetch" href="https://images.unsplash.com">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -13,14 +22,25 @@
     <meta property="og:description" content="AI-powered travel discovery app for Berlin experiences. Built with Kotlin, Spring Boot 3, Vue 3, TypeScript, and Claude API.">
     <meta property="og:url" content="https://gyg-ai-concierge.vercel.app">
     <meta property="og:site_name" content="Denes Csaszar">
+    <meta property="og:image" content="https://gyg-ai-concierge.vercel.app/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AI Travel Concierge for GetYourGuide — Kotlin, Spring Boot, Vue 3 and Claude">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="AI Travel Concierge for GetYourGuide">
     <meta name="twitter:description" content="AI-powered travel discovery app for Berlin experiences. Built with Kotlin, Spring Boot 3, Vue 3, TypeScript, and Claude API.">
+    <meta name="twitter:image" content="https://gyg-ai-concierge.vercel.app/og-image.png">
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <p style="font-family: system-ui, sans-serif; padding: 2rem; text-align: center">
+        This AI Travel Concierge needs JavaScript enabled to browse Berlin experiences and chat
+        with the concierge.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
